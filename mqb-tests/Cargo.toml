@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+name = "mqb-tests"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bson.workspace = true
+chrono.workspace = true
+mqb-core = { path = "../mqb-core", features = ["chrono", "uuid"] }
+mqb-macro = { path = "../mqb-macro" }
+serde.workspace = true

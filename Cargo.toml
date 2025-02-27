@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "mqb-core",
+    "mqb-macro",
+    "mqb-tests",
+]
+
+resolver = "2"
+
+[workspace.dependencies]
+bson = { version = "2", features = ["chrono-0_4"] }
+chrono = "0.4"
+num-traits = "0.2"
+serde = { version = "1", features = ["derive"] }
+uuid = { version = "1.7.0", features = ["serde", "v4"] }
