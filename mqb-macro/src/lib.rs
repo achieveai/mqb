@@ -5,26 +5,6 @@ use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Fields};
 mod serde_utils;
 use serde_utils::*;
 
-#[proc_macro_derive(LeafKeyPathable)]
-pub fn derive_leaf_keypathable(
-    input: proc_macro::TokenStream,
-) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    let item_name = match input.data {
-        Data::Struct(_) => input.ident,
-        Data::Enum(_) => input.ident,
-        _ => panic!("expected a struct or enum"),
-    };
-
-    quote! {
-        impl mqb_core::kp::KeyPathable for #item_name {
-            type KeyPathNode<Parent: mqb_core::kp::KeyPathNodeLike, UnderlyingType> = mqb_core::kp::TerminalKeyPathNode<Parent, UnderlyingType>;
-        }
-    }
-    .into()
-}
-
 #[proc_macro_derive(KeyPathable)]
 pub fn derive_keypathable(
     input: proc_macro::TokenStream,
@@ -46,7 +26,10 @@ fn expand_derive_keypathable(input: DeriveInput) -> TokenStream {
             fields: Fields::Named(fields),
             ..
         }) => &fields.named,
-        _ => panic!("expected a struct with named fields"),
+        Data::Struct(_) | Data::Enum(_) => {
+            return derive_leaf_keypathable(input)
+        }
+        _ => panic!("expected a struct or enum"),
     };
 
     let field_name =
@@ -141,7 +124,7 @@ fn expand_derive_keypathable(input: DeriveInput) -> TokenStream {
             type KeyPathNode<Parent: mqb_core::kp::KeyPathNodeLike, UnderlyingType> = #key_path_node_name<Parent, UnderlyingType>;
         }
 
-        #[derive(Clone)]
+        #[derive(Copy, Clone)]
         pub struct #key_path_root_node_name {
         }
 
@@ -183,6 +166,20 @@ fn expand_derive_keypathable(input: DeriveInput) -> TokenStream {
                     <#field_type as mqb_core::kp::KeyPathable>::KeyPathNode::<Self, #underlying_types>::instance(#serde_field_name_str, #serializers, self)
                 }
             )*
+        }
+    }
+}
+
+fn derive_leaf_keypathable(input: DeriveInput) -> TokenStream {
+    let item_name = match input.data {
+        Data::Struct(_) => input.ident,
+        Data::Enum(_) => input.ident,
+        _ => panic!("expected a struct or enum"),
+    };
+
+    quote! {
+        impl mqb_core::kp::KeyPathable for #item_name {
+            type KeyPathNode<Parent: mqb_core::kp::KeyPathNodeLike, UnderlyingType> = mqb_core::kp::TerminalKeyPathNode<Parent, UnderlyingType>;
         }
     }
 }

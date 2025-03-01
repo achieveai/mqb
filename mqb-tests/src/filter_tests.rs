@@ -1,8 +1,9 @@
 use bson::{doc, oid::ObjectId};
 use chrono::{DateTime, Utc};
 use mqb_core::kp::KeyPathableAsRoot;
-use mqb_macro::{KeyPathable, LeafKeyPathable};
+use mqb_macro::KeyPathable;
 use serde::{Deserialize, Serialize};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Serialize, Deserialize, KeyPathable)]
 #[serde(rename_all = "PascalCase")]
@@ -31,7 +32,8 @@ pub struct Address {
     kind: AddressKind,
 }
 
-#[derive(Serialize, Deserialize, LeafKeyPathable, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, KeyPathable, PartialEq)]
+#[repr(u8)]
 pub enum AddressKind {
     Home = 0,
     Work = 1,
@@ -41,7 +43,7 @@ pub enum AddressKind {
 fn eq_test() {
     let oid = ObjectId::new();
 
-    let filter = mqb_core::FilterBuilder::<Person>::new()
+    let filter = mqb_core::FilterBuilder::new()
         .gt(Person::kp().address().city(), "New York".to_string())
         .eq(Person::kp().profile_id(), oid)
         .eq(Person::kp().address().city(), "New York".to_string())
@@ -62,7 +64,7 @@ fn eq_test() {
             },
 
             "Address.Kind": {
-                "$eq": "Home"
+                "$eq": AddressKind::Home as i32
             }
         }
     );

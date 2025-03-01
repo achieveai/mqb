@@ -11,3 +11,4 @@ chrono.workspace = true
 mqb-core = { path = "../mqb-core", features = ["chrono", "uuid"] }
 mqb-macro = { path = "../mqb-macro" }
 serde.workspace = true
+serde_repr = "0.1"
