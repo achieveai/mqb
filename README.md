@@ -1,16 +1,8 @@
-# MQB (MongoDB Query Builder)
+# MQB
 
-MQB is a Rust library for constructing type-checked MongoDB filters and updates. It provides compile-time validation for MongoDB queries, addressing a common challenge in the MongoDB Rust ecosystem where query construction typically lacks type safety.
+MQB is a Rust library for constructing MongoDB filters and updates in a type-safe manner.
 
-## Features
-
-- **Compile-time Type Safety**: Catch query errors before runtime
-- **Type-checked Field References**: Use keypaths to safely reference struct fields
-- **Comprehensive Operator Support**: Type-safe implementations of MongoDB operators
-- **Serde Integration**: Respects serde attributes and custom serializers
-- **Intuitive API**: Builder pattern for constructing queries
-
-## Quick Start
+## Usage
 
 1. Add the `KeyPathable` derive macro to your struct:
 
@@ -22,85 +14,63 @@ use mqb_core::KeyPathable;
 pub struct DataObject {
     #[serde(rename = "_id")]
     id: ObjectId,
-    field0: String,
+
+    name: String,
+
     version_id: i32,
+
     #[serde(with = "bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     last_updated: chrono::DateTime<chrono::Utc>,
 }
 ```
 
-2. Create type-safe filters:
+2. Create type-safe filters and updates:
 
 ```rust
-use mqb_core::{kp::*, FilterBuilder};
+use mqb_core::{kp::*, FilterBuilder, UpdateBuilder};
 
-let filter = FilterBuilder::<DataObject>::new()
-    .eq(
-        DataObject::kp().field0(),
-        "value"
-    )
+let filter = FilterBuilder::new()
+    .eq(DataObject::kp().id(), user_id)
+    .try_build()?;
+
+let update = UpdateBuilder::new()
+    .set(DataObject::kp().name(), "New Name")
+    .inc(DataObject::kp().version_id(), 1)
+    .current_date(DateObject::kp().last_updated())
     .try_build()?;
 ```
 
-3. Build type-safe updates:
+3. Finally perform the query:
 
 ```rust
-use mqb_core::{kp::*, UpdateBuilder};
-
-let update = UpdateBuilder::<DataObject>::new()
-    .set(
-        DataObject::kp().field0(),
-        "new_value"
-    )
-    .inc(
-        DataObject::kp().version_id(),
-        1
-    )
-    .try_build()?;
-```
-
-4. Use with `Collection`:
-
-```rust
-collection
+let _ = collection
     .update_one(filter, update)
     .await?;
 ```
 
-## Advanced Features
+## Additional Details
 
 ### Serde Integration
 
-MQB respects all serde attributes and customizations:
+MQB respects all serde attributes:
 
 - `rename_all` and `rename` attributes for field name transformations
 ```rust
 DataObject::kp().id() // Will be rendered as "_id" in the query.
 ```
-- Custom serializers for fields
+- Custom serializers for fields using `serialize_with`
 ```rust
-FilterBuilder::<DataObject>::new()
-    .lte(DataObject::kp().last_updated(), chrono::Utc::now())
+FilterBuilder::new()
+    .lt(DataObject::kp().last_updated(), chrono::Utc::now())
     .try_build()?;
 
-// The above will be rendered as:
+// The above will be rendered as the following, since the field last_updated has it's serializer overriden in the struct definition.
 {
     "last_updated": {
         "$lte": bson::serde_helpers::chrono_datetime_as_bson_datetime::serialize(value), // where value is the argument passed to the `lte` method.
     }
 }
 ``` 
-- Nested struct support
-```rust
-#[derive(Serialize, Deserialize, KeyPathable)]
-struct Nested {
-    field0: String,
-}
-
-// Allows for nested field access:
-
-DataObject::kp().nested().field0() // Will be rendered as "nested.field0" in the query.
-```
 
 ### Type Safety
 
@@ -108,15 +78,15 @@ MQB prevents the following:
 
 - Incorrect operator usage (e.g., `$inc` on String fields)
 ```rust
-let filter = FilterBuilder::<DataObject>::new()
-    .inc(DataObject::kp().field0(), 1) // Compile error, since field0 is a String.
-```
-- Invalid field references  
-```rust
-let filter = FilterBuilder::<DataObject>::new()
-    .eq(DataObject::kp().unknown_field(), "value") // Compile error, since unknown_field doesn't exist.
+let filter = FilterBuilder::new()
+    .inc(DataObject::kp().name(), 1) // Compile error, since name is a String.
 ```
 
+- Invalid field references  
+```rust
+let filter = FilterBuilder::new()
+    .eq(DataObject::kp().unknown_field(), "value") // Compile error, since unknown_field doesn't exist.
+```
 
 ## License
 
